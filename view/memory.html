@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+
+    <div id="wait" style="display: none;">
+        <p>Waiting for players</p>
+    </div>
+    
+    <div id="modal">
+        <div class="overlay"></div>
+        <div class="bx">
+            <form id="name">
+                <input type="text" name="username" id="username">
+                <input type="submit" value="ready">
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:3000/ws/room/{{.Path}}")
+
+        ws.onopen = _ => {
+            console.log("ws open connection")
+            let wsEvent = {
+                "action": "register",
+                "username": "unknown"
+            }
+            ws.send(JSON.stringify(wsEvent))
+        }
+
+        ws.onclose = _ => {
+            console.log("ws close connection")
+        }
+
+        ws.onmessage = event => {
+            let j = JSON.parse(event.data)
+            
+            switch (j.action) {
+                case "wait":
+                    document.getElementById("wait").style = ""
+                    break;
+                case "start":
+                    document.getElementById("wait").style = "display:none;"
+                    break;
+                default:
+                    console.log(j)
+                    break;
+            }
+        }
+
+        function turn() {
+            ws.send(this.id)
+        }
+
+        document.getElementById("name").addEventListener("submit", function(event) {
+            event.preventDefault()
+            let wsEvent = {
+                "action": "updatename",
+                "username": document.getElementById("username").value
+            }
+
+            document.getElementById("modal").style = "display:none;"
+
+            ws.send(JSON.stringify(wsEvent))
+        })
+    </script>
+</body>
+</html>
