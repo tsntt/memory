@@ -16,6 +16,9 @@ func main() {
 	broker := src.NewBroker()
 	handlers := src.NewWsHandler(broker)
 
+	fs := http.FileServer(http.Dir("./public"))
+	http.Handle("/assets/", http.StripPrefix("/assets/", fs))
+
 	http.HandleFunc("/", handlers.Register)
 	http.HandleFunc("/room", handlers.RegisterRoom)
 	http.HandleFunc("/room/", handlers.JoinRoom)

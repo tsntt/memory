@@ -3,17 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Memory new game</title>
+    <link rel="stylesheet" type="text/css" href="../assets/css/main.css">
 </head>
 <body>
-    <form action="/room" method="post">
-        <input type="text" name="room" id="room">
-        <select name="players" id="players">
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-        </select>
-        <input type="submit" value="New Room">
-    </form>
+    <main class="block {{.Modifier}}">
+        <div class="wrp">
+            <h1>{{.Title}}</h1>
+            <p>{{.Description}}</p>
+            <form action="/room" method="post">
+                <input type="text" name="room" id="room" maxlength="30" value="{{.RoomName}}" placeholder="{{.RoomName}}">
+                <select name="players" id="players">
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                </select>
+                <input type="submit" value="New Game">
+                <p id="fb"> </p>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        const fb = document.getElementById("fb")
+        const name = document.getElementById("room")
+        const txtFb = "Name has not allowed character: "
+        const rgx = new RegExp(/[^a-zAz0-9_-]/g)
+
+        function inputListener() {
+            
+            if (this.value.match(rgx)) {
+                const chars = this.value.match(rgx).join(" ")
+                fb.innerHTML = txtFb + chars 
+
+                return
+            }
+
+            fb.innerHTML = ""
+        }
+
+        name.addEventListener("keyup", inputListener, false)
+        name.addEventListener("focus", function(){
+            if (this.value == this.placeholder) {
+                this.value = ""
+            }
+        })
+        name.addEventListener("blur", function(){
+            if (this.value == "") {
+                this.value = this.placeholder
+            }
+        })
+    </script>
 </body>
 </html>

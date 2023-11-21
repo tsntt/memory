@@ -2,6 +2,7 @@ package src
 
 import (
 	"fmt"
+	"log"
 )
 
 type Broker struct {
@@ -16,7 +17,7 @@ func NewBroker() (broker *Broker) {
 		Rooms:      make(map[string]*Room),
 		Register:   make(chan *Client),
 		Unregister: make(chan *Client),
-		Broadcast:  make(chan *Message, 2),
+		Broadcast:  make(chan *Message, 1),
 	}
 
 	go broker.listen()
@@ -28,59 +29,101 @@ func (b *Broker) listen() {
 	for {
 		select {
 		case cl := <-b.Register:
-			path := RoomIDToPath[cl.RoomID]
+			if _, ok := b.Rooms[cl.RoomPath]; ok {
+				r := b.Rooms[cl.RoomPath]
 
-			if _, ok := b.Rooms[path]; ok {
-				r := b.Rooms[path]
+				if _, ok := r.Clients[cl.ID]; !ok {
+					r.Clients[cl.ID] = cl
 
-				if _, ok := r.Clients[cl.ID.String()]; !ok {
-					r.Clients[cl.ID.String()] = cl
+					// broadcast message to clients of new user?
+					for _, c := range r.Clients {
+						if c.ID != cl.ID {
+							p := Player{
+								ID:           c.ID.String(),
+								Username:     c.Username,
+								PlayerNumber: c.PlayerNumber,
+							}
+
+							strHtml, err := NewUserNameHTMl(p)
+							if err != nil {
+								log.Print(err)
+							}
+
+							cl.Message <- &Message{
+								RoomPath: cl.RoomPath,
+								UserID:   cl.ID,
+								Content:  strHtml,
+								Event:    "addUser",
+							}
+						}
+					}
 				}
 			}
 		case cl := <-b.Unregister:
-			path := RoomIDToPath[cl.RoomID]
+			if _, ok := b.Rooms[cl.RoomPath]; ok {
+				r := b.Rooms[cl.RoomPath]
 
-			if _, ok := b.Rooms[path]; ok {
-				r := b.Rooms[path]
-
-				if _, ok := r.Clients[cl.ID.String()]; ok {
+				if _, ok := r.Clients[cl.ID]; ok {
 					// if has other users
 					if len(r.Clients) > 1 {
 						// broadcast User out
 						b.Broadcast <- &Message{
-							RoomID:   cl.RoomID,
+							RoomPath: cl.RoomPath,
 							UserID:   cl.ID,
-							Username: cl.Username,
 							Content:  fmt.Sprintf("%s left the room", cl.Username),
-							Action:   "leave",
+							Event:    "leave",
 						}
 					}
 
-					delete(r.Clients, cl.ID.String())
+					delete(r.Clients, cl.ID)
 					close(cl.Message)
 				}
 			}
 		case m := <-b.Broadcast:
-			path := RoomIDToPath[m.RoomID]
-			if _, ok := b.Rooms[path]; ok {
-				r := b.Rooms[path]
+			boadcast := true
+
+			if _, ok := b.Rooms[m.RoomPath]; ok {
+				r := b.Rooms[m.RoomPath]
 
 				// exec things based on m.Action
-				switch m.Action {
-				case "register":
+				switch m.Event {
+				case "updateUserName":
+					name := fmt.Sprint(m.Content)
 
-				case "updatename":
-					r.Clients[m.UserID.String()].Username = m.Username
-					m.Content = ""
-					if len(r.Clients) == r.ConnLen.Int() {
-						m.Action = "start"
-					} else {
-						m.Action = "wait"
+					r.Clients[m.UserID].Username = name
+
+					u := Player{
+						ID:           m.UserID.String(),
+						PlayerNumber: r.Clients[m.UserID].PlayerNumber,
+						Username:     name,
 					}
+
+					htmlStr, err := NewUserNameHTMl(u)
+					if err != nil {
+						log.Print(err)
+					}
+
+					m.Event = "addUser"
+					m.Content = htmlStr
+				case "userAdded":
+					boadcast = false
+					// check this part
+					if len(r.Clients) == r.ConnLen.Int() {
+						boadcast = true
+
+						m.Event = "start"
+						m.Content = map[string]*Client{
+							"turn": r.Clients[r.ClientTurn()],
+						}
+					}
+
 				}
 
-				for _, cl := range r.Clients {
-					cl.Message <- m
+				// condition to send or not
+				if boadcast {
+					for _, cl := range r.Clients {
+						cl.Message <- m
+					}
 				}
 			}
 		}

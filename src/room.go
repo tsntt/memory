@@ -7,22 +7,21 @@ import (
 	"github.com/google/uuid"
 )
 
-var RoomIDToPath = make(map[uuid.UUID]string, 0)
+var RoomPathID = make(map[string]uuid.UUID, 0)
 
 type Room struct {
-	ID      uuid.UUID          `json:"id"`
-	Path    Path               `json:"-"`
-	ConnLen Players            `json:"-"`
-	Clients map[string]*Client `json:"clients"`
-	Cards   []Card             `json:"cards"`
+	Path    Path                  `json:"id"`
+	ConnLen Players               `json:"-"`
+	Clients map[uuid.UUID]*Client `json:"clients"`
+	Cards   []Card                `json:"cards"`
+	Turn    uuid.UUID             `json:"-"`
 }
 
 func NewRoom(p Path, n Players) *Room {
 	return &Room{
-		ID:      uuid.New(),
 		Path:    p,
 		ConnLen: n,
-		Clients: make(map[string]*Client, n.Int()),
+		Clients: make(map[uuid.UUID]*Client, n.Int()),
 	}
 }
 
@@ -32,6 +31,28 @@ func (r *Room) NewGame(cards []string) *Room {
 	r.Cards = MakeCardPairs(cards[:10]...)
 
 	return r
+}
+
+func (r *Room) ClientTurn() uuid.UUID {
+	next := false
+
+	for _, c := range r.Clients {
+		if r.Turn == (uuid.UUID{}) {
+			r.Turn = c.ID
+			break
+		}
+		if r.Turn == c.ID {
+			next = true
+			continue
+		}
+		if next {
+			r.Turn = c.ID
+			next = false
+			break
+		}
+	}
+
+	return r.Turn
 }
 
 type Path string

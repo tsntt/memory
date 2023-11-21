@@ -8,27 +8,28 @@ import (
 )
 
 type Client struct {
-	Conn     *websocket.Conn `json:"-"`
-	Message  chan *Message   `json:"-"`
-	ID       uuid.UUID       `json:"id"`
-	RoomID   uuid.UUID       `json:"-"`
-	Username string          `json:"username"`
+	Conn         *websocket.Conn `json:"-"`
+	Message      chan *Message   `json:"-"`
+	ID           uuid.UUID       `json:"id"`
+	RoomPath     string          `json:"-"`
+	Username     string          `json:"username"`
+	PlayerNumber int             `json:"playerNumber"`
 }
 
 type Message struct {
-	RoomID   uuid.UUID `json:"roomId"`
+	RoomPath string    `json:"roomId"`
 	UserID   uuid.UUID `json:"userId"`
-	Username string    `json:"username"`
-	Content  string    `json:"content"`
-	Action   string    `json:"action"`
+	Content  any       `json:"content"`
+	Event    string    `json:"event"`
 }
 
-func NewClient(conn *websocket.Conn, ch chan *Message, roomID uuid.UUID) *Client {
+func NewClient(conn *websocket.Conn, ch chan *Message, room *Room) *Client {
 	return &Client{
-		ID:      uuid.New(),
-		Conn:    conn,
-		Message: ch,
-		RoomID:  roomID,
+		ID:           uuid.New(),
+		Conn:         conn,
+		Message:      ch,
+		RoomPath:     room.Path.String(),
+		PlayerNumber: len(room.Clients) + 1,
 	}
 }
 
@@ -49,7 +50,7 @@ func (c *Client) Read(broker *Broker) {
 			break
 		}
 
-		msg.RoomID = c.RoomID
+		msg.RoomPath = c.RoomPath
 		msg.UserID = c.ID
 
 		broker.Broadcast <- &msg

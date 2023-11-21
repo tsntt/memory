@@ -1,0 +1,8 @@
+<div class="player" id="{{.ID}}">
+    <p><span class="player-number">p{{.PlayerNumber}}</span><span class="name">{{.Username}}<span class="place"></span></span></p>
+    <p>
+        {{range .Collected}}
+            <span class="emoji">{{.}}</span>
+        {{end}}
+    </p>
+</div>

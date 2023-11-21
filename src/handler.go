@@ -20,6 +20,13 @@ func NewWsHandler(b *Broker) *wsHandler {
 	}
 }
 
+type IndexData struct {
+	Title       string
+	Description string
+	RoomName    string
+	Modifier    string
+}
+
 func (ws *wsHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "", http.StatusMethodNotAllowed)
@@ -31,7 +38,13 @@ func (ws *wsHandler) Register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	tmpl.Execute(w, "")
+	d := IndexData{
+		Title:       "Challenge you frinds🤼, match more cards🎴 and victory🏅",
+		Description: "Name you room, select how many player and have fun!",
+		RoomName:    GeneratePetName(3, "-"),
+	}
+
+	tmpl.Execute(w, d)
 }
 
 func (ws *wsHandler) RegisterRoom(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +76,6 @@ func (ws *wsHandler) RegisterRoom(w http.ResponseWriter, r *http.Request) {
 
 	room := NewRoom(path, Players(nplayers))
 	ws.broker.Rooms[path.String()] = room
-	RoomIDToPath[room.ID] = path.String()
 
 	redirect := fmt.Sprintf("/room/%s", path.String())
 
@@ -74,19 +86,16 @@ func (ws *wsHandler) JoinRoom(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/room/")
 
 	if _, ok := ws.broker.Rooms[name]; !ok {
-		err := fmt.Sprintf("Room with name %s does not exist", name)
-		http.Error(w, err, http.StatusNotFound)
+		ws.RoomNotFound(w, r)
 		return
 	}
 
 	room := ws.broker.Rooms[name]
 	if len(room.Clients) >= room.ConnLen.Int() {
-		err := fmt.Sprintf("Room %s is full", name)
-		http.Error(w, err, http.StatusBadRequest)
+		ws.RoomAreadyFull(w, r)
 		return
 	}
 
-	// template for room
 	tmpl, err := template.ParseFiles("./view/memory.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -113,10 +122,44 @@ func (ws *wsHandler) Socket(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/ws/room/")
 
 	ch := make(chan *Message, 1)
-	cl := NewClient(conn, ch, ws.broker.Rooms[name].ID)
+	cl := NewClient(conn, ch, ws.broker.Rooms[name])
 
 	ws.broker.Register <- cl
 
 	go cl.Write()
 	cl.Read(ws.broker)
+}
+
+func (ws *wsHandler) RoomNotFound(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(r.URL.Path, "/room/")
+
+	tmpl, err := template.ParseFiles("./view/index.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	d := IndexData{
+		Title:       "Room not found! 💡Create this room and play.",
+		Description: "select how many player and have fun!",
+		RoomName:    name,
+		Modifier:    "notfound",
+	}
+
+	tmpl.Execute(w, d)
+}
+
+func (ws *wsHandler) RoomAreadyFull(w http.ResponseWriter, r *http.Request) {
+	tmpl, err := template.ParseFiles("./view/index.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	d := IndexData{
+		Title:       "All player aready playing🎮! Create a new 🌟room and play▶️",
+		Description: "Name you room, select how many player and have fun!",
+		RoomName:    GeneratePetName(3, "-"),
+		Modifier:    "areadyfull",
+	}
+
+	tmpl.Execute(w, d)
 }

@@ -3,34 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Memory room: {{.Path}}</title>
+    <link rel="stylesheet" href="../assets/css/main.css">
+    <script src="../assets/js/main.js"></script>
 </head>
 <body>
 
-    <div id="wait" style="display: none;">
-        <p>Waiting for players</p>
-    </div>
+    <main>
+        <div id="canvas"></div>
+        <div id="players-cards"></div>
+    </main>
     
-    <div id="modal">
-        <div class="overlay"></div>
-        <div class="bx">
+    <div id="modal" class="block">
+        <div class="wrp">
+            <h2>Choose you screen name:</h2>
             <form id="name">
-                <input type="text" name="username" id="username">
+                <input type="text" name="username" id="username" maxlength="15">
                 <input type="submit" value="ready">
+                <p id="fb"></p>
             </form>
         </div>
     </div>
 
     <script>
+        const fb = document.getElementById('fb')
+        const username = document.getElementById('username')
+        const fbMsg = "Must choose an user name"
+        const players = document.getElementById('players-cards')
+
         const ws = new WebSocket("ws://localhost:3000/ws/room/{{.Path}}")
+
+        function makeWaitingPlayers(n) {
+            for (let i = 0; i < n; i++) {
+                players.innerHTML += `<div class="player"><p><span class="player-number">p${i+1}</span> Waiting...</p></div>`
+            }
+        }
+        
+        makeWaitingPlayers(parseInt('{{.ConnLen}}'))
 
         ws.onopen = _ => {
             console.log("ws open connection")
-            let wsEvent = {
-                "action": "register",
-                "username": "unknown"
-            }
-            ws.send(JSON.stringify(wsEvent))
         }
 
         ws.onclose = _ => {
@@ -39,35 +51,79 @@
 
         ws.onmessage = event => {
             let j = JSON.parse(event.data)
+
+            console.log(j.event)
             
-            switch (j.action) {
-                case "wait":
-                    document.getElementById("wait").style = ""
+            switch (j.event) {
+                case "addUser":
+                    let ps = [...players.querySelectorAll(".player")]
+
+                    for (let i = 0; i < ps.length; i++) {
+                        const p = ps[i];
+                        if (p.id == "") {
+                            console.log(p)
+                            p.outerHTML = j.content
+                            break;
+                        }
+                    }
+
+                    let wsEvent = {
+                        "event": "userAdded",
+                        "content": j.userId
+                    }
+
+                    ws.send(JSON.stringify(wsEvent))
+                    
                     break;
                 case "start":
-                    document.getElementById("wait").style = "display:none;"
+                    // <- (maybe fuse with turn)
+                    // allow turn user to click
                     break;
-                default:
-                    console.log(j)
+                case "click":
+                    // ->
+                    // send card that was clicked
+                    break;
+                case "turn":
+                    // <-
+                    // turn card with this id
+                    break;
+                case "paired":
+                    // <-
+                    // remove cards from view
+                    break;
+                case "notpaired":
+                    // <-
+                    // unturn cards
+                    break;
+                case "allpaired":
+                    // <-
+                    // end game
+                    break;
+                case "leave":
+                    document.getElementById(j.userId).remove()
                     break;
             }
         }
 
-        function turn() {
-            ws.send(this.id)
-        }
-
-        document.getElementById("name").addEventListener("submit", function(event) {
+        document.getElementById('name').addEventListener("submit", function(event) {
             event.preventDefault()
-            let wsEvent = {
-                "action": "updatename",
-                "username": document.getElementById("username").value
+
+            if (username.value == "") {
+                fb.innerHTML = fbMsg
+                return
             }
 
             document.getElementById("modal").style = "display:none;"
 
+            let wsEvent = {
+                "event": "updateUserName",
+                "content": document.getElementById("username").value
+            }
+
             ws.send(JSON.stringify(wsEvent))
         })
+
+        username.addEventListener('keyup', function(){ fb.innerHTML = this.value == "" ? fbMsg : "" })
     </script>
 </body>
 </html>
