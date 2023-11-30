@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Memory room: {{.Path}}</title>
     <link rel="stylesheet" href="../assets/css/main.css">
-    <script src="../assets/js/main.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.3/gsap.min.js"></script>
+    <script src=" https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.min.js "></script>
+    
 </head>
 <body>
 
@@ -25,105 +28,14 @@
         </div>
     </div>
 
-    <script>
-        const fb = document.getElementById('fb')
-        const username = document.getElementById('username')
-        const fbMsg = "Must choose an user name"
-        const players = document.getElementById('players-cards')
+    <img src="../assets/img/texturemap.webp" style="display: none;" id="cardUvMap">
 
-        const ws = new WebSocket("ws://localhost:3000/ws/room/{{.Path}}")
+    <script src="../assets/js/memory/texture.js"></script>
+    <script src="../assets/js/memory/card.js"></script>
+    <script src="../assets/js/memory/lights.js"></script>
+    <script src="../assets/js/memory/camera.js"></script>
+    <script src="../assets/js/memory/memory.js"></script>
 
-        function makeWaitingPlayers(n) {
-            for (let i = 0; i < n; i++) {
-                players.innerHTML += `<div class="player"><p><span class="player-number">p${i+1}</span> Waiting...</p></div>`
-            }
-        }
-        
-        makeWaitingPlayers(parseInt('{{.ConnLen}}'))
-
-        ws.onopen = _ => {
-            console.log("ws open connection")
-        }
-
-        ws.onclose = _ => {
-            console.log("ws close connection")
-        }
-
-        ws.onmessage = event => {
-            let j = JSON.parse(event.data)
-
-            console.log(j.event)
-            
-            switch (j.event) {
-                case "addUser":
-                    let ps = [...players.querySelectorAll(".player")]
-
-                    for (let i = 0; i < ps.length; i++) {
-                        const p = ps[i];
-                        if (p.id == "") {
-                            console.log(p)
-                            p.outerHTML = j.content
-                            break;
-                        }
-                    }
-
-                    let wsEvent = {
-                        "event": "userAdded",
-                        "content": j.userId
-                    }
-
-                    ws.send(JSON.stringify(wsEvent))
-                    
-                    break;
-                case "start":
-                    // <- (maybe fuse with turn)
-                    // allow turn user to click
-                    break;
-                case "click":
-                    // ->
-                    // send card that was clicked
-                    break;
-                case "turn":
-                    // <-
-                    // turn card with this id
-                    break;
-                case "paired":
-                    // <-
-                    // remove cards from view
-                    break;
-                case "notpaired":
-                    // <-
-                    // unturn cards
-                    break;
-                case "allpaired":
-                    // <-
-                    // end game
-                    break;
-                case "leave":
-                    document.getElementById(j.userId).remove()
-                    break;
-            }
-        }
-
-        document.getElementById('name').addEventListener("submit", function(event) {
-            event.preventDefault()
-
-            if (username.value == "") {
-                fb.innerHTML = fbMsg
-                return
-            }
-
-            document.getElementById("modal").style = "display:none;"
-
-            let wsEvent = {
-                "event": "updateUserName",
-                "content": document.getElementById("username").value
-            }
-
-            ws.send(JSON.stringify(wsEvent))
-        })
-
-        username.addEventListener('keyup', function(){ fb.innerHTML = this.value == "" ? fbMsg : "" })
-    </script>
+    <script src="../assets/js/index.js"></script>
 </body>
 </html>
